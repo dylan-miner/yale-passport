@@ -92,6 +92,58 @@ let myProfileId;
   });
   check("user cannot insert matches directly", !!error);
 }
+{
+  // onboarding/profile write path: user updates own profile via RLS
+  const { error } = await user
+    .from("profiles")
+    .update({ availability_text: "Weekday evenings" })
+    .eq("user_id", (await user.auth.getUser()).data.user.id);
+  check("user can update own profile", !error);
+}
+{
+  // user cannot update someone else's profile
+  const { data: victim } = await user
+    .from("directory_profiles")
+    .select("id")
+    .neq("id", myProfileId)
+    .limit(1)
+    .single();
+  const { error: upErr, data: upData } = await user
+    .from("profiles")
+    .update({ full_name: "HACKED" })
+    .eq("id", victim.id)
+    .select();
+  check(
+    "user cannot update another profile",
+    !!upErr || (upData ?? []).length === 0,
+  );
+}
+{
+  // user can upsert own consent (profile/consent write path)
+  const { error } = await user
+    .from("consents")
+    .upsert(
+      { profile_id: myProfileId, key: "yaa_sharing", granted: true },
+      { onConflict: "profile_id,key" },
+    );
+  check("user can update own consent", !error);
+}
+{
+  // user cannot write consent for another profile
+  const { data: victim } = await user
+    .from("directory_profiles")
+    .select("id")
+    .neq("id", myProfileId)
+    .limit(1)
+    .single();
+  const { error } = await user
+    .from("consents")
+    .upsert(
+      { profile_id: victim.id, key: "yaa_sharing", granted: true },
+      { onConflict: "profile_id,key" },
+    );
+  check("user cannot write consent for another profile", !!error);
+}
 
 // ---------- service role ----------
 const admin = createClient(url, secret, {
