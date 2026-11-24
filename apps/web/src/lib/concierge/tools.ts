@@ -10,16 +10,12 @@ import type {
   Profile,
 } from "@/lib/types";
 import { logEngagement } from "./store";
+import { requestIntro } from "@/lib/matching";
 
 const fmt = (s: string) => s.trim().toLowerCase();
 
 function norm(v: string | null | undefined) {
   return v ? v.trim().toLowerCase() : "";
-}
-
-function overlaps(a: string[], b: string[]) {
-  const set = new Set(a.map(fmt));
-  return b.filter((x) => set.has(fmt(x)));
 }
 
 function summarize(p: DirectoryProfile) {
@@ -266,88 +262,16 @@ export function buildConciergeTools(profile: Profile, channel: Channel) {
         alumni_id: z.string().describe("alumni_id from a search_alumni result"),
       }),
       execute: async ({ alumni_id }) => {
-        if (alumni_id === profile.id) {
-          return { ok: false, error: "Cannot match a user with themselves." };
-        }
-        const { data: counterpart, error: cpError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", alumni_id)
-          .maybeSingle();
-        if (cpError || !counterpart) {
-          return { ok: false, error: "Alumni not found." };
-        }
-
-        // Gate on the counterpart's introductions consent — checked in the
-        // database, never trusted to the model.
-        const { data: hasIntroConsent } = await supabase.rpc("has_consent", {
-          p_profile_id: alumni_id,
-          p_key: "introductions",
-        });
-        const cpFirstName = (counterpart.full_name as string).split(" ")[0];
-        if (!hasIntroConsent) {
-          return {
-            ok: false,
-            message: `${cpFirstName} hasn't opted into introductions, so I can't request one. Want me to look for someone similar?`,
-          };
-        }
-
-        const pair = [
-          `initiator_id.eq.${profile.id},counterpart_id.eq.${alumni_id}`,
-          `initiator_id.eq.${alumni_id},counterpart_id.eq.${profile.id}`,
-        ];
-        const { data: existing } = await supabase
-          .from("matches")
-          .select("id,status")
-          .or(pair.join(","))
-          .in("status", ["proposed", "awaiting_counterpart", "mutual"])
-          .maybeSingle();
-        if (existing) {
-          return {
-            ok: false,
-            message:
-              existing.status === "mutual"
-                ? "You two already matched — the intro is on your Connect tab."
-                : "An introduction request is already in flight for this person. Tell the user exactly that — you'll let them know the moment the counterpart responds.",
-          };
-        }
-
-        const cp = counterpart as Profile;
-        const shared = overlaps(
-          [...profile.interests, ...profile.networking_goals],
-          [...cp.interests, ...cp.networking_goals],
-        );
-        const reason = [
-          profile.current_city && cp.current_city
-            ? `Both in ${profile.current_city}`
-            : null,
-          shared.length
-            ? `shared interests: ${shared.slice(0, 3).join(", ")}`
-            : null,
-        ]
-          .filter(Boolean)
-          .join("; ");
-
-        const { error: insertError } = await supabase.from("matches").insert({
-          initiator_id: profile.id,
-          counterpart_id: alumni_id,
-          context: "requested",
-          status: "awaiting_counterpart",
-          initiator_response: "accepted",
-          counterpart_response: "pending",
-          match_reason: reason || null,
-          shared_interests: shared,
-        });
-        if (insertError) return { ok: false, error: insertError.message };
-
-        await logEngagement("match_requested", profile.id, {
-          counterpart: alumni_id,
+        const result = await requestIntro({
+          initiator: profile,
+          alumniId: alumni_id,
           channel,
         });
+        if (!result.ok) return result;
         return {
           ok: true,
-          counterpart_first_name: cpFirstName,
-          message: `Intro request sent to ${cpFirstName}. It's double opt-in — I'll text you the moment they respond.`,
+          counterpart_first_name: result.counterpartName.split(" ")[0],
+          message: result.message,
         };
       },
     }),

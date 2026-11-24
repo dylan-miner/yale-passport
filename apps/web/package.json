@@ -11,7 +11,8 @@
     "migrate": "node --env-file=.env.local scripts/migrate.mjs",
     "seed": "node --env-file=.env.local scripts/seed.mjs",
     "verify": "node --env-file=.env.local scripts/verify.mjs",
-    "concierge:smoke": "tsx scripts/concierge-smoke.ts"
+    "concierge:smoke": "tsx scripts/concierge-smoke.ts",
+    "match:smoke": "tsx scripts/match-smoke.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.122",

@@ -1,0 +1,214 @@
+// Match flow end-to-end smoke test — request → double opt-in → mutual →
+// contact release, plus consent enforcement, state transitions, duplicate
+// prevention, and unauthorized-access checks. Runs over real HTTP against
+// /api/matches with the synthetic alumni simulator.
+//
+// Usage: npm run match:smoke   (dev server must be running)
+
+process.loadEnvFile(".env.local");
+
+import { APP_URL, adminClient, signInDemo, check, finish } from "./e2e-helpers";
+
+const admin = adminClient();
+let cookieHeader = "";
+let userClient: Awaited<ReturnType<typeof signInDemo>>["userClient"];
+
+async function post(path: string, body: unknown, auth = true) {
+  const res = await fetch(`${APP_URL}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(auth ? { Cookie: cookieHeader } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  return { status: res.status, data: await res.json().catch(() => ({})) };
+}
+const get = (path: string) =>
+  fetch(`${APP_URL}${path}`, { headers: { Cookie: cookieHeader } });
+
+async function main() {
+  ({ cookieHeader, userClient } = await signInDemo());
+
+  const { data: sam } = await admin
+    .from("profiles")
+    .select("id,full_name")
+    .eq("personal_email", "demo@passport.yale")
+    .single();
+  const { data: maya } = await admin
+    .from("profiles")
+    .select("id,full_name")
+    .ilike("full_name", "Maya Chen%")
+    .single();
+  if (!sam || !maya) throw new Error("Seed data missing — run npm run seed");
+
+  // Clear any pre-existing Sam↔Maya match so the run is deterministic.
+  await admin
+    .from("matches")
+    .delete()
+    .or(
+      `and(initiator_id.eq.${sam.id},counterpart_id.eq.${maya.id}),and(initiator_id.eq.${maya.id},counterpart_id.eq.${sam.id})`,
+    );
+
+  // --- unauthorized access ---
+  check("unauth POST /api/matches → 401", (await post("/api/matches", { alumni_id: maya.id }, false)).status === 401);
+  check("unauth GET /api/matches → 401", (await fetch(`${APP_URL}/api/matches`)).status === 401);
+
+  // --- request intro ---
+  let r = await post("/api/matches", { alumni_id: maya.id });
+  check("intro request accepted", r.status === 200, JSON.stringify(r.data).slice(0, 80));
+  const matchId = r.data.match?.id as string;
+  check("match is awaiting_counterpart", r.data.match?.status === "awaiting_counterpart");
+
+  // --- duplicate prevention ---
+  r = await post("/api/matches", { alumni_id: maya.id });
+  check("duplicate request refused", r.status === 409);
+
+  // --- initiator can't respond while waiting ---
+  r = await post(`/api/matches/${matchId}/respond`, { action: "accept" });
+  check("initiator respond while waiting → 403", r.status === 403);
+
+  // --- contact withheld before mutual (DB-enforced, user client) ---
+  let { data: contact } = await userClient.rpc("get_match_contact", {
+    p_match_id: matchId,
+  });
+  check("contact withheld before mutual", (contact?.length ?? 0) === 0);
+
+  // --- counterpart notification landed in Maya's concierge thread ---
+  const { data: mayaConvo } = await admin
+    .from("conversations")
+    .select("id")
+    .eq("kind", "concierge")
+    .eq("profile_a", maya.id)
+    .single();
+  const { data: mayaMsgs } = await admin
+    .from("messages")
+    .select("body")
+    .eq("conversation_id", mayaConvo!.id)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  check(
+    "counterpart notified via concierge thread",
+    (mayaMsgs?.[0]?.body ?? "").includes(sam.full_name),
+  );
+
+  // --- decline path (simulated synthetic response) ---
+  r = await post(`/api/matches/${matchId}/simulate`, { decision: "decline" });
+  check("simulated decline → declined", r.data.status === "declined");
+  const { data: declined } = await admin
+    .from("matches")
+    .select("status,counterpart_response,resolved_at")
+    .eq("id", matchId)
+    .single();
+  check(
+    "declined state persisted",
+    declined!.status === "declined" &&
+      declined!.counterpart_response === "declined" &&
+      !!declined!.resolved_at,
+  );
+
+  // --- accept path → mutual ---
+  r = await post("/api/matches", { alumni_id: maya.id });
+  const mutualId = r.data.match?.id as string;
+  r = await post(`/api/matches/${mutualId}/simulate`, { decision: "accept" });
+  check("simulated accept → mutual", r.data.status === "mutual" && r.data.mutual === true);
+
+  const { data: mutual } = await admin
+    .from("matches")
+    .select("status,intro_draft,resolved_at")
+    .eq("id", mutualId)
+    .single();
+  check("intro draft generated", (mutual!.intro_draft ?? "").length > 40);
+
+  // match conversation created + seeded with the intro
+  const { data: matchConvo } = await admin
+    .from("conversations")
+    .select("id")
+    .eq("kind", "match")
+    .eq("match_id", mutualId)
+    .single();
+  check("match conversation created", !!matchConvo);
+  const { data: convoMsgs } = await admin
+    .from("messages")
+    .select("sender_type,body")
+    .eq("conversation_id", matchConvo!.id);
+  check(
+    "intro posted to match conversation",
+    convoMsgs!.length === 1 && convoMsgs![0].sender_type === "concierge",
+  );
+
+  // contact released after mutual — via the user's own client
+  ({ data: contact } = await userClient.rpc("get_match_contact", {
+    p_match_id: mutualId,
+  }));
+  check(
+    "contact released after mutual",
+    !!contact?.[0]?.personal_email || !!contact?.[0]?.phone_e164,
+    contact?.[0]?.personal_email ?? undefined,
+  );
+  check(
+    "contact is the counterpart, not self",
+    contact?.[0]?.full_name === "Maya Chen",
+  );
+
+  // GET surface includes contact for mutual only
+  const list = await (await get("/api/matches")).json();
+  const mutualEntry = list.matches.find((x: { id: string }) => x.id === mutualId);
+  check(
+    "GET exposes contact on mutual only",
+    !!mutualEntry?.contact &&
+      list.matches.every(
+        (x: { status: string; contact: unknown }) =>
+          x.status === "mutual" || x.contact === null,
+      ),
+  );
+
+  // --- authorization: stranger can't respond or simulate ---
+  // A match Sam isn't part of (two synthetic alumni)
+  const { data: otherAlum } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("is_synthetic", true)
+    .neq("id", maya.id)
+    .limit(2);
+  const { data: foreignMatch } = await admin
+    .from("matches")
+    .insert({
+      initiator_id: otherAlum![0].id,
+      counterpart_id: otherAlum![1].id,
+      status: "awaiting_counterpart",
+      initiator_response: "accepted",
+    })
+    .select("id")
+    .single();
+  r = await post(`/api/matches/${foreignMatch!.id}/respond`, { action: "accept" });
+  check("stranger cannot respond to others' match", r.status === 403);
+
+  // --- consent enforcement: intros refused for non-consented alumni ---
+  const { data: noConsent } = await admin
+    .from("consents")
+    .select("profile_id")
+    .eq("key", "introductions")
+    .eq("granted", false)
+    .limit(1);
+  if (noConsent?.length) {
+    r = await post("/api/matches", { alumni_id: noConsent[0].profile_id });
+    check("intro refused without introductions consent", r.status === 409);
+  } else {
+    console.log("SKIP  intro refused without introductions consent — no opted-out alumni in seed");
+  }
+
+  // --- cleanup ---
+  await admin.from("matches").delete().or(
+    `initiator_id.eq.${sam.id},counterpart_id.eq.${sam.id}`,
+  );
+  await admin.from("matches").delete().eq("id", foreignMatch!.id);
+  console.log("\nCleaned up test matches.");
+
+  finish();
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
