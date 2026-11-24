@@ -127,6 +127,20 @@ export interface Event {
   created_at: string;
 }
 
+// Consent-filtered directory view — safe fields only, no contact details.
+export interface DirectoryProfile {
+  id: string;
+  full_name: string;
+  grad_year: number;
+  current_city: string;
+  industry: string | null;
+  company: string | null;
+  role_title: string | null;
+  linkedin_url: string | null;
+  interests: string[];
+  networking_goals: string[];
+}
+
 export type LocationSource = "ip" | "manual" | "sms" | "browser";
 export type LocationKind = "travel" | "relocation" | "unknown";
 

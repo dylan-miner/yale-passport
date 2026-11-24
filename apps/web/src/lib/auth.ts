@@ -27,3 +27,15 @@ export async function getMyProfile(
     .maybeSingle();
   return data;
 }
+
+// For route handlers — returns null instead of redirecting so callers can
+// respond with 401.
+export async function getSessionProfile(): Promise<Profile | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+  if (error || !user) return null;
+  return getMyProfile(supabase, user.id);
+}
