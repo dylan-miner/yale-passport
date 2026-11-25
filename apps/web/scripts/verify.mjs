@@ -76,8 +76,20 @@ let myProfileId;
     `columns: ${data?.[0] ? Object.keys(data[0]).join(",") : "none"}`);
 }
 {
-  const { data, error } = await user.from("matches").select("id");
-  check("user sees no matches yet", !error && data.length === 0);
+  // RLS must only return matches the user participates in — regardless of
+  // how many exist (count varies once the concierge/match flow is used).
+  const { data, error } = await user
+    .from("matches")
+    .select("id,initiator_id,counterpart_id");
+  const mine = myProfileId;
+  check(
+    "user sees only own matches",
+    !error &&
+      (data ?? []).every(
+        (m) => m.initiator_id === mine || m.counterpart_id === mine,
+      ),
+    `${data?.length ?? "err"} visible`,
+  );
 }
 {
   const { data, error } = await user.from("events").select("id");

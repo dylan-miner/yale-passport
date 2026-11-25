@@ -3,6 +3,9 @@
 // prevention, and unauthorized-access checks. Runs over real HTTP against
 // /api/matches with the synthetic alumni simulator.
 //
+// Non-destructive: picks a synthetic counterpart with no existing match to
+// the demo user and deletes only the rows it creates.
+//
 // Usage: npm run match:smoke   (dev server must be running)
 
 process.loadEnvFile(".env.local");
@@ -35,33 +38,52 @@ async function main() {
     .select("id,full_name")
     .eq("personal_email", "demo@passport.yale")
     .single();
-  const { data: maya } = await admin
+  if (!sam) throw new Error("Demo profile not found — run npm run seed");
+
+  // Pick a synthetic counterpart with introductions consent and NO existing
+  // match to Sam — never touches data the user created in the UI.
+  const { data: samMatches } = await admin
+    .from("matches")
+    .select("initiator_id,counterpart_id")
+    .or(`initiator_id.eq.${sam.id},counterpart_id.eq.${sam.id}`);
+  const usedIds = new Set(
+    (samMatches ?? []).flatMap((m) => [m.initiator_id, m.counterpart_id]),
+  );
+  const { data: candidates } = await admin
     .from("profiles")
     .select("id,full_name")
-    .ilike("full_name", "Maya Chen%")
-    .single();
-  if (!sam || !maya) throw new Error("Seed data missing — run npm run seed");
+    .eq("is_synthetic", true)
+    .neq("id", sam.id);
+  let cp: { id: string; full_name: string } | undefined;
+  for (const c of candidates ?? []) {
+    if (usedIds.has(c.id)) continue;
+    const { data: ok } = await admin.rpc("has_consent", {
+      p_profile_id: c.id,
+      p_key: "introductions",
+    });
+    if (ok) {
+      cp = c;
+      break;
+    }
+  }
+  if (!cp) throw new Error("No unmatched synthetic alum available for smoke");
+  console.log(`Counterpart: ${cp.full_name}\n`);
 
-  // Clear any pre-existing Sam↔Maya match so the run is deterministic.
-  await admin
-    .from("matches")
-    .delete()
-    .or(
-      `and(initiator_id.eq.${sam.id},counterpart_id.eq.${maya.id}),and(initiator_id.eq.${maya.id},counterpart_id.eq.${sam.id})`,
-    );
+  const createdMatchIds: string[] = [];
 
   // --- unauthorized access ---
-  check("unauth POST /api/matches → 401", (await post("/api/matches", { alumni_id: maya.id }, false)).status === 401);
+  check("unauth POST /api/matches → 401", (await post("/api/matches", { alumni_id: cp.id }, false)).status === 401);
   check("unauth GET /api/matches → 401", (await fetch(`${APP_URL}/api/matches`)).status === 401);
 
   // --- request intro ---
-  let r = await post("/api/matches", { alumni_id: maya.id });
+  let r = await post("/api/matches", { alumni_id: cp.id });
   check("intro request accepted", r.status === 200, JSON.stringify(r.data).slice(0, 80));
   const matchId = r.data.match?.id as string;
+  if (matchId) createdMatchIds.push(matchId);
   check("match is awaiting_counterpart", r.data.match?.status === "awaiting_counterpart");
 
   // --- duplicate prevention ---
-  r = await post("/api/matches", { alumni_id: maya.id });
+  r = await post("/api/matches", { alumni_id: cp.id });
   check("duplicate request refused", r.status === 409);
 
   // --- initiator can't respond while waiting ---
@@ -74,22 +96,22 @@ async function main() {
   });
   check("contact withheld before mutual", (contact?.length ?? 0) === 0);
 
-  // --- counterpart notification landed in Maya's concierge thread ---
-  const { data: mayaConvo } = await admin
+  // --- counterpart notification landed in their concierge thread ---
+  const { data: cpConvo } = await admin
     .from("conversations")
     .select("id")
     .eq("kind", "concierge")
-    .eq("profile_a", maya.id)
+    .eq("profile_a", cp.id)
     .single();
-  const { data: mayaMsgs } = await admin
+  const { data: cpMsgs } = await admin
     .from("messages")
     .select("body")
-    .eq("conversation_id", mayaConvo!.id)
+    .eq("conversation_id", cpConvo!.id)
     .order("created_at", { ascending: false })
     .limit(1);
   check(
     "counterpart notified via concierge thread",
-    (mayaMsgs?.[0]?.body ?? "").includes(sam.full_name),
+    (cpMsgs?.[0]?.body ?? "").includes(sam.full_name),
   );
 
   // --- decline path (simulated synthetic response) ---
@@ -108,8 +130,9 @@ async function main() {
   );
 
   // --- accept path → mutual ---
-  r = await post("/api/matches", { alumni_id: maya.id });
+  r = await post("/api/matches", { alumni_id: cp.id });
   const mutualId = r.data.match?.id as string;
+  if (mutualId) createdMatchIds.push(mutualId);
   r = await post(`/api/matches/${mutualId}/simulate`, { decision: "accept" });
   check("simulated accept → mutual", r.data.status === "mutual" && r.data.mutual === true);
 
@@ -148,7 +171,7 @@ async function main() {
   );
   check(
     "contact is the counterpart, not self",
-    contact?.[0]?.full_name === "Maya Chen",
+    contact?.[0]?.full_name === cp.full_name,
   );
 
   // GET surface includes contact for mutual only
@@ -163,24 +186,22 @@ async function main() {
       ),
   );
 
-  // --- authorization: stranger can't respond or simulate ---
+  // --- authorization: stranger can't respond ---
   // A match Sam isn't part of (two synthetic alumni)
-  const { data: otherAlum } = await admin
-    .from("profiles")
-    .select("id")
-    .eq("is_synthetic", true)
-    .neq("id", maya.id)
-    .limit(2);
+  const otherAlum = (candidates ?? []).filter(
+    (c) => c.id !== cp.id && c.id !== sam.id,
+  );
   const { data: foreignMatch } = await admin
     .from("matches")
     .insert({
-      initiator_id: otherAlum![0].id,
-      counterpart_id: otherAlum![1].id,
+      initiator_id: otherAlum[0].id,
+      counterpart_id: otherAlum[1].id,
       status: "awaiting_counterpart",
       initiator_response: "accepted",
     })
     .select("id")
     .single();
+  createdMatchIds.push(foreignMatch!.id);
   r = await post(`/api/matches/${foreignMatch!.id}/respond`, { action: "accept" });
   check("stranger cannot respond to others' match", r.status === 403);
 
@@ -198,12 +219,9 @@ async function main() {
     console.log("SKIP  intro refused without introductions consent — no opted-out alumni in seed");
   }
 
-  // --- cleanup ---
-  await admin.from("matches").delete().or(
-    `initiator_id.eq.${sam.id},counterpart_id.eq.${sam.id}`,
-  );
-  await admin.from("matches").delete().eq("id", foreignMatch!.id);
-  console.log("\nCleaned up test matches.");
+  // --- cleanup: only rows this run created ---
+  await admin.from("matches").delete().in("id", createdMatchIds);
+  console.log(`\nCleaned up ${createdMatchIds.length} test matches.`);
 
   finish();
 }

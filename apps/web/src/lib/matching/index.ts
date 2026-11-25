@@ -114,14 +114,12 @@ export async function requestIntro(args: {
     };
   }
 
-  const pair = [
-    `initiator_id.eq.${initiator.id},counterpart_id.eq.${alumniId}`,
-    `initiator_id.eq.${alumniId},counterpart_id.eq.${initiator.id}`,
-  ];
+  // (A→B) OR (B→A) — flat OR terms are each AND'd filters inside and() groups.
+  const pair = `and(initiator_id.eq.${initiator.id},counterpart_id.eq.${alumniId}),and(initiator_id.eq.${alumniId},counterpart_id.eq.${initiator.id})`;
   const { data: existing } = await supabase
     .from("matches")
     .select("id,status")
-    .or(pair.join(","))
+    .or(pair)
     .in("status", ["proposed", "awaiting_counterpart", "mutual"])
     .maybeSingle();
   if (existing) {

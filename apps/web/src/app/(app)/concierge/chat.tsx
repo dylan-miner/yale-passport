@@ -125,7 +125,8 @@ export function ConciergeChat({
         </p>
         <h1 className="mt-1 font-display text-3xl font-semibold">Yale Passport</h1>
         <p className="mt-1 text-sm text-ink-soft">
-          Texts with {firstName} · same thread you&apos;ll get over SMS
+          Texts with {firstName} — ask for intros, events, or tell it when you
+          move
         </p>
       </div>
 
