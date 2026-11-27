@@ -59,8 +59,8 @@ export function AppNav() {
   return (
     <>
       {/* desktop top bar */}
-      <header className="sticky top-0 z-20 hidden border-b border-line bg-paper/90 backdrop-blur md:block">
-        <div className="mx-auto flex h-16 max-w-3xl items-center justify-between px-6">
+      <header className="sticky top-0 z-20 hidden border-b border-line-soft bg-paper/85 backdrop-blur-md md:block">
+        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-6">
           <Link href="/discover">
             <Wordmark />
           </Link>
@@ -70,10 +70,10 @@ export function AppNav() {
                 key={t.href}
                 href={t.href}
                 className={cx(
-                  "flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
                   isActive(t.href)
-                    ? "bg-yale/10 text-yale"
-                    : "text-ink-soft hover:text-ink hover:bg-line/50",
+                    ? "bg-yale text-white"
+                    : "text-ink-soft hover:bg-yale/5 hover:text-yale",
                 )}
               >
                 {t.icon}
@@ -84,18 +84,30 @@ export function AppNav() {
         </div>
       </header>
 
+      {/* mobile top bar — brand only; navigation lives in the tab bar */}
+      <header className="sticky top-0 z-20 border-b border-line-soft bg-paper/85 backdrop-blur-md md:hidden">
+        <div className="mx-auto flex h-12 max-w-3xl items-center justify-between px-4">
+          <Link href="/discover" aria-label="Passport home">
+            <Wordmark />
+          </Link>
+        </div>
+      </header>
+
       {/* mobile bottom tab bar */}
-      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-white/95 backdrop-blur md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line-soft bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
         <div className="mx-auto grid max-w-md grid-cols-4">
           {tabs.map((t) => (
             <Link
               key={t.href}
               href={t.href}
               className={cx(
-                "flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium",
+                "relative flex flex-col items-center gap-0.5 pb-2 pt-2.5 text-[11px] font-medium",
                 isActive(t.href) ? "text-yale" : "text-ink-soft",
               )}
             >
+              {isActive(t.href) && (
+                <span className="absolute top-0 h-0.5 w-8 rounded-full bg-yale" />
+              )}
               {t.icon}
               {t.label}
             </Link>

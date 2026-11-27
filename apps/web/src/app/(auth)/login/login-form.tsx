@@ -7,7 +7,7 @@ import {
   signInWithPassword,
   type AuthFormState,
 } from "@/app/actions/auth";
-import { Button, Card, Field, Input, Wordmark } from "@/components/ui";
+import { Button, Field, Input, Wordmark } from "@/components/ui";
 
 const initial: AuthFormState = {};
 
@@ -33,59 +33,57 @@ export function LoginForm({ linkError }: { linkError: boolean }) {
 
   return (
     <div className="w-full max-w-sm">
-      <div className="mb-8 flex flex-col items-center gap-4 text-center">
+      <div className="mb-9">
         <Wordmark />
-        <p className="font-display text-2xl italic text-ink">
-          Your Yale network, wherever you land.
-        </p>
-        <p className="text-sm text-ink-soft">
-          Warm introductions to local alumni, delivered by text. For recent
-          graduates who just moved.
+        <h1 className="mt-8 font-display text-4xl font-semibold leading-tight text-ink">
+          Welcome back.
+        </h1>
+        <p className="mt-2.5 text-sm leading-relaxed text-ink-soft">
+          Sign in to pick up where you left off — alumni, events, and your
+          concierge are waiting.
         </p>
       </div>
 
-      <Card className="p-6">
-        <form action={passwordAction} className="flex flex-col gap-4">
-          <Field label="Email">
+      <form action={passwordAction} className="flex flex-col gap-4">
+        <Field label="Email">
+          <Input name="email" type="email" required placeholder="you@example.com" />
+        </Field>
+        <Field label="Password">
+          <Input name="password" type="password" required placeholder="••••••••" />
+        </Field>
+        <Button type="submit" disabled={passwordPending} className="mt-1">
+          {passwordPending ? "Signing in…" : "Sign in"}
+        </Button>
+      </form>
+
+      <div className="my-6 flex items-center gap-3 text-xs text-ink-soft">
+        <div className="h-px flex-1 bg-line-soft" />
+        or continue with
+        <div className="h-px flex-1 bg-line-soft" />
+      </div>
+
+      {linkState.sent ? (
+        <p className="rounded-xl bg-affirm-soft px-4 py-3 text-sm text-affirm">
+          Check your email — we sent you a magic sign-in link.
+        </p>
+      ) : (
+        <form action={linkAction} className="flex flex-col gap-4">
+          <Field label="Email" hint="We'll email you a one-time sign-in link.">
             <Input name="email" type="email" required placeholder="you@example.com" />
           </Field>
-          <Field label="Password">
-            <Input name="password" type="password" required placeholder="••••••••" />
-          </Field>
-          <Button type="submit" disabled={passwordPending}>
-            {passwordPending ? "Signing in…" : "Sign in"}
+          <Button type="submit" variant="secondary" disabled={linkPending}>
+            {linkPending ? "Sending…" : "Email me a magic link"}
           </Button>
         </form>
+      )}
 
-        <div className="my-5 flex items-center gap-3 text-xs text-ink-soft">
-          <div className="h-px flex-1 bg-line" />
-          or
-          <div className="h-px flex-1 bg-line" />
-        </div>
+      {error && (
+        <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </p>
+      )}
 
-        {linkState.sent ? (
-          <p className="rounded-xl bg-affirm-soft px-4 py-3 text-sm text-affirm">
-            Check your email — we sent you a magic sign-in link.
-          </p>
-        ) : (
-          <form action={linkAction} className="flex flex-col gap-4">
-            <Field label="Email" hint="We'll email you a one-time sign-in link.">
-              <Input name="email" type="email" required placeholder="you@example.com" />
-            </Field>
-            <Button type="submit" variant="secondary" disabled={linkPending}>
-              {linkPending ? "Sending…" : "Email me a magic link"}
-            </Button>
-          </form>
-        )}
-
-        {error && (
-          <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </p>
-        )}
-      </Card>
-
-      <form action={demoAction} className="mt-4">
+      <form action={demoAction} className="mt-6 border-t border-line-soft pt-6">
         <Button
           type="submit"
           variant="ghost"

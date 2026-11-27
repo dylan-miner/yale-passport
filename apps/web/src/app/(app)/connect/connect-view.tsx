@@ -2,17 +2,9 @@
 
 import { useState } from "react";
 import type { MatchSummary } from "@/lib/matching";
+import { Avatar, Empty, Notice } from "@/components/ui";
 
 type Match = MatchSummary;
-
-function initials(name: string) {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
 
 function StatusChip({ status }: { status: Match["status"] }) {
   const styles: Record<Match["status"], string> = {
@@ -38,18 +30,18 @@ function StatusChip({ status }: { status: Match["status"] }) {
   );
 }
 
-function PersonRow({ m }: { m: Match }) {
+function PersonRow({ m, large }: { m: Match; large?: boolean }) {
   const c = m.counterpart;
   const work =
     [c.role_title, c.company].filter(Boolean).join(" at ") || c.industry;
   return (
     <div className="flex items-start gap-3">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-yale/10 font-display text-sm font-semibold text-yale">
-        {initials(c.full_name)}
-      </div>
+      <Avatar name={c.full_name} size={large ? "lg" : "md"} />
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <p className="truncate font-medium text-ink">
+          <p
+            className={`truncate font-medium text-ink ${large ? "font-display text-lg" : ""}`}
+          >
             {c.full_name}{" "}
             <span className="text-ink-soft">
               &lsquo;{String(c.grad_year).slice(-2)}
@@ -127,7 +119,7 @@ export function ConnectView({
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-7">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wider text-ink-soft">
           Connect
@@ -140,22 +132,13 @@ export function ConnectView({
         </p>
       </div>
 
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
-          {error}
-        </div>
-      )}
+      {error && <Notice tone="error">{error}</Notice>}
 
       {matches.length === 0 && (
-        <div className="rounded-3xl border border-dashed border-line bg-white/60 p-8 text-center">
-          <p className="font-display text-lg italic text-ink">
-            No introductions yet.
-          </p>
-          <p className="mt-2 text-sm text-ink-soft">
-            Ask your concierge — “find me someone in Boston in climate tech” —
-            and requests will show up here.
-          </p>
-        </div>
+        <Empty
+          title="No introductions yet."
+          body="Ask your concierge — “find me someone in Boston in climate tech” — and requests will show up here."
+        />
       )}
 
       {incoming.length > 0 && (
@@ -166,17 +149,22 @@ export function ConnectView({
           {incoming.map((m) => (
             <div
               key={m.id}
-              className="rounded-3xl border border-line bg-white p-5"
+              className="rounded-3xl border border-yale/20 bg-white p-6 shadow-[0_2px_8px_rgba(0,53,107,0.06)]"
             >
-              <PersonRow m={m} />
+              <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-yale">
+                Introduction requested
+              </p>
+              <PersonRow m={m} large />
               {m.match_reason && (
-                <p className="mt-3 text-sm text-ink-soft">{m.match_reason}</p>
+                <p className="mt-4 font-display text-[15px] italic leading-relaxed text-ink">
+                  {m.match_reason}
+                </p>
               )}
-              <div className="mt-4 flex gap-2">
+              <div className="mt-5 flex gap-2">
                 <button
                   onClick={() => void respond(m.id, "accept")}
                   disabled={busy !== null}
-                  className="rounded-full bg-yale px-5 py-2 text-sm font-medium text-white transition disabled:opacity-40"
+                  className="rounded-full bg-yale px-5 py-2 text-sm font-medium text-white transition hover:bg-yale-deep disabled:opacity-40"
                 >
                   {busy === `respond-${m.id}` ? "…" : "Accept intro"}
                 </button>
@@ -246,51 +234,59 @@ export function ConnectView({
           {mutual.map((m) => (
             <div
               key={m.id}
-              className="rounded-3xl border border-emerald-200 bg-white p-5"
+              className="overflow-hidden rounded-3xl border border-gold/30 bg-letter"
             >
-              <div className="flex items-start justify-between gap-3">
-                <PersonRow m={m} />
+              <div className="flex items-start justify-between gap-3 p-6 pb-0">
+                <PersonRow m={m} large />
                 <StatusChip status={m.status} />
               </div>
               {m.intro_draft && (
-                <div className="mt-4 rounded-2xl rounded-bl-md border border-line bg-paper px-4 py-3 text-sm leading-relaxed text-ink">
-                  {m.intro_draft}
+                <div className="px-6 pt-5">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-gold">
+                    From your concierge
+                  </p>
+                  <div className="mt-2 h-px w-10 bg-gold/60" />
+                  <p className="mt-3 font-display text-[15px] leading-relaxed text-ink">
+                    {m.intro_draft}
+                  </p>
                 </div>
               )}
               {m.contact ? (
-                <div className="mt-4 grid gap-1.5 rounded-2xl bg-emerald-50 px-4 py-3 text-sm">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800">
+                <div className="mt-5 border-t border-gold/25 bg-gold-soft/40 px-6 py-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
                     Shared with mutual consent
                   </p>
-                  {m.contact.personal_email && (
-                    <a
-                      href={`mailto:${m.contact.personal_email}`}
-                      className="text-ink underline decoration-emerald-300 underline-offset-2"
-                    >
-                      {m.contact.personal_email}
-                    </a>
-                  )}
-                  {m.contact.phone_e164 && (
-                    <a
-                      href={`sms:${m.contact.phone_e164}`}
-                      className="text-ink underline decoration-emerald-300 underline-offset-2"
-                    >
-                      {m.contact.phone_e164}
-                    </a>
-                  )}
-                  {m.contact.linkedin_url && (
-                    <a
-                      href={m.contact.linkedin_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-ink underline decoration-emerald-300 underline-offset-2"
-                    >
-                      LinkedIn →
-                    </a>
-                  )}
+                  <div className="mt-2.5 flex flex-wrap gap-2">
+                    {m.contact.personal_email && (
+                      <a
+                        href={`mailto:${m.contact.personal_email}`}
+                        className="rounded-full border border-yale/25 bg-white px-4 py-1.5 text-xs font-medium text-yale transition hover:bg-yale hover:text-white"
+                      >
+                        {m.contact.personal_email}
+                      </a>
+                    )}
+                    {m.contact.phone_e164 && (
+                      <a
+                        href={`sms:${m.contact.phone_e164}`}
+                        className="rounded-full border border-yale/25 bg-white px-4 py-1.5 text-xs font-medium text-yale transition hover:bg-yale hover:text-white"
+                      >
+                        {m.contact.phone_e164}
+                      </a>
+                    )}
+                    {m.contact.linkedin_url && (
+                      <a
+                        href={m.contact.linkedin_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-full border border-yale/25 bg-white px-4 py-1.5 text-xs font-medium text-yale transition hover:bg-yale hover:text-white"
+                      >
+                        LinkedIn →
+                      </a>
+                    )}
+                  </div>
                 </div>
               ) : (
-                <p className="mt-4 text-sm text-ink-soft">
+                <p className="px-6 pb-5 pt-4 text-sm text-ink-soft">
                   Contact details unavailable.
                 </p>
               )}

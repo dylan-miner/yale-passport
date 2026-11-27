@@ -33,16 +33,12 @@ export default function ConciergePage() {
   return (
     <Suspense
       fallback={
-        <div className="flex flex-col gap-6">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-ink-soft">
-              Concierge
-            </p>
-            <h1 className="mt-1 font-display text-3xl font-semibold">
-              Yale Passport
-            </h1>
+        <div className="flex h-[calc(100dvh-12rem)] flex-col overflow-hidden rounded-2xl border border-line-soft bg-white md:h-[calc(100dvh-8.5rem)]">
+          <div className="flex items-center gap-3 bg-yale px-4 py-3">
+            <div className="h-9 w-9 animate-pulse rounded-full bg-white/15" />
+            <div className="h-4 w-40 animate-pulse rounded bg-white/15" />
           </div>
-          <div className="animate-pulse rounded-3xl border border-line bg-white p-8 text-sm text-ink-soft">
+          <div className="flex-1 bg-paper p-6 text-sm text-ink-soft">
             Loading your conversation…
           </div>
         </div>

@@ -132,3 +132,115 @@ export function Wordmark({ dark = false }: { dark?: boolean }) {
     </div>
   );
 }
+
+// ── Primitives added for the visual overhaul ─────────────────────────────
+
+export function initials(name: string) {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
+export function Avatar({
+  name,
+  size = "md",
+  className,
+}: {
+  name: string;
+  size?: "sm" | "md" | "lg";
+  className?: string;
+}) {
+  return (
+    <div
+      className={cx(
+        "flex shrink-0 items-center justify-center rounded-full bg-yale/10 font-display font-semibold text-yale",
+        size === "sm" && "h-8 w-8 text-xs",
+        size === "md" && "h-10 w-10 text-sm",
+        size === "lg" && "h-14 w-14 text-lg",
+        className,
+      )}
+    >
+      {initials(name)}
+    </div>
+  );
+}
+
+export function Eyebrow({ children }: { children: ReactNode }) {
+  return (
+    <p className="text-xs font-semibold uppercase tracking-wider text-ink-soft">
+      {children}
+    </p>
+  );
+}
+
+export function PageHeader({
+  eyebrow,
+  title,
+  subtitle,
+}: {
+  eyebrow: string;
+  title: string;
+  subtitle?: string;
+}) {
+  return (
+    <div>
+      <Eyebrow>{eyebrow}</Eyebrow>
+      <h1 className="mt-1 font-display text-3xl font-semibold">{title}</h1>
+      {subtitle && <p className="mt-1 text-sm text-ink-soft">{subtitle}</p>}
+    </div>
+  );
+}
+
+export function Notice({
+  tone = "info",
+  children,
+  onDismiss,
+}: {
+  tone?: "info" | "success" | "error";
+  children: ReactNode;
+  onDismiss?: () => void;
+}) {
+  return (
+    <div
+      className={cx(
+        "flex items-center justify-between gap-3 rounded-xl px-4 py-2.5 text-sm",
+        tone === "info" && "border border-yale/20 bg-yale/5 text-ink",
+        tone === "success" && "border border-affirm/30 bg-affirm-soft text-affirm",
+        tone === "error" && "border border-red-200 bg-red-50 text-red-800",
+      )}
+    >
+      <span>{children}</span>
+      {onDismiss && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="shrink-0 font-medium underline underline-offset-2"
+        >
+          Dismiss
+        </button>
+      )}
+    </div>
+  );
+}
+
+export function Empty({
+  title,
+  body,
+  action,
+}: {
+  title: string;
+  body?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-dashed border-line bg-white/50 px-5 py-7 text-center">
+      <p className="font-display text-lg italic text-ink">{title}</p>
+      {body && <p className="mx-auto mt-1.5 max-w-sm text-sm text-ink-soft">{body}</p>}
+      {action && <div className="mt-4">{action}</div>}
+    </div>
+  );
+}

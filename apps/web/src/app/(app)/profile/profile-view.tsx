@@ -126,78 +126,107 @@ export function ProfileView({
       <form action={formAction}>
         <Card className="p-6">
           <h2 className="mb-4 font-display text-lg font-semibold">Details</h2>
-          <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Full name">
-                <Input name="full_name" required defaultValue={profile.full_name} />
+          <div className="flex flex-col gap-6">
+            <section className="flex flex-col gap-4">
+              <p className="border-b border-line-soft pb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
+                Identity
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Full name">
+                  <Input name="full_name" required defaultValue={profile.full_name} />
+                </Field>
+                <Field label="Grad year">
+                  <Input
+                    name="grad_year"
+                    type="number"
+                    required
+                    defaultValue={profile.grad_year}
+                  />
+                </Field>
+              </div>
+            </section>
+
+            <section className="flex flex-col gap-4">
+              <p className="border-b border-line-soft pb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
+                Contact
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Personal email">
+                  <Input
+                    name="personal_email"
+                    type="email"
+                    defaultValue={profile.personal_email ?? ""}
+                  />
+                </Field>
+                <Field label="Phone">
+                  <Input name="phone_e164" defaultValue={profile.phone_e164 ?? ""} />
+                </Field>
+              </div>
+            </section>
+
+            <section className="flex flex-col gap-4">
+              <p className="border-b border-line-soft pb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
+                Location
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Home city">
+                  <Input name="home_city" required defaultValue={profile.home_city} />
+                </Field>
+                <Field label="Current city">
+                  <Input
+                    name="current_city"
+                    required
+                    defaultValue={profile.current_city}
+                  />
+                </Field>
+              </div>
+            </section>
+
+            <section className="flex flex-col gap-4">
+              <p className="border-b border-line-soft pb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
+                Work
+              </p>
+              <div className="grid grid-cols-3 gap-4">
+                <Field label="Industry">
+                  <Input name="industry" defaultValue={profile.industry ?? ""} />
+                </Field>
+                <Field label="Company">
+                  <Input name="company" defaultValue={profile.company ?? ""} />
+                </Field>
+                <Field label="Role">
+                  <Input name="role_title" defaultValue={profile.role_title ?? ""} />
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="LinkedIn">
+                  <Input name="linkedin_url" defaultValue={profile.linkedin_url ?? ""} />
+                </Field>
+                <Field label="Portfolio">
+                  <Input name="portfolio_url" defaultValue={profile.portfolio_url ?? ""} />
+                </Field>
+              </div>
+            </section>
+
+            <section className="flex flex-col gap-4">
+              <p className="border-b border-line-soft pb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
+                About you
+              </p>
+              <Field label="Interests" hint="Comma-separated">
+                <Input name="interests" defaultValue={defaultList(profile.interests)} />
               </Field>
-              <Field label="Grad year">
+              <Field label="I'm here for" hint="Comma-separated">
                 <Input
-                  name="grad_year"
-                  type="number"
-                  required
-                  defaultValue={profile.grad_year}
+                  name="networking_goals"
+                  defaultValue={defaultList(profile.networking_goals)}
                 />
               </Field>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Personal email">
+              <Field label="Typical availability">
                 <Input
-                  name="personal_email"
-                  type="email"
-                  defaultValue={profile.personal_email ?? ""}
+                  name="availability_text"
+                  defaultValue={profile.availability_text ?? ""}
                 />
               </Field>
-              <Field label="Phone">
-                <Input name="phone_e164" defaultValue={profile.phone_e164 ?? ""} />
-              </Field>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Home city">
-                <Input name="home_city" required defaultValue={profile.home_city} />
-              </Field>
-              <Field label="Current city">
-                <Input
-                  name="current_city"
-                  required
-                  defaultValue={profile.current_city}
-                />
-              </Field>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <Field label="Industry">
-                <Input name="industry" defaultValue={profile.industry ?? ""} />
-              </Field>
-              <Field label="Company">
-                <Input name="company" defaultValue={profile.company ?? ""} />
-              </Field>
-              <Field label="Role">
-                <Input name="role_title" defaultValue={profile.role_title ?? ""} />
-              </Field>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="LinkedIn">
-                <Input name="linkedin_url" defaultValue={profile.linkedin_url ?? ""} />
-              </Field>
-              <Field label="Portfolio">
-                <Input name="portfolio_url" defaultValue={profile.portfolio_url ?? ""} />
-              </Field>
-            </div>
-            <Field label="Interests" hint="Comma-separated">
-              <Input name="interests" defaultValue={defaultList(profile.interests)} />
-            </Field>
-            <Field label="I'm here for" hint="Comma-separated">
-              <Input
-                name="networking_goals"
-                defaultValue={defaultList(profile.networking_goals)}
-              />
-            </Field>
-            <Field label="Typical availability">
-              <Input
-                name="availability_text"
-                defaultValue={profile.availability_text ?? ""}
-              />
-            </Field>
+            </section>
           </div>
 
           {state?.error && (

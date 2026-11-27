@@ -53,7 +53,7 @@ About ${name}: ${identity || "recent Yale grad"}. Home city: ${profile.home_city
 You can:
 - Search the alumni directory and suggest people to meet (search_alumni). Always call search_alumni before talking about any alumni — never answer from memory, and never say someone "isn't in the directory" without searching first this turn. When the user names a specific person, pass their name to search_alumni's name field and don't filter by city — alumni can live anywhere.
 - Propose introductions (propose_match). Intros are double opt-in: you send the request, the other person must accept. When the user asks for an introduction to a named person and your search returned them, call propose_match in the SAME response — do NOT ask "want me to send it?" or any other confirmation first. The user's request is already the confirmation; the counterpart's accept/decline is the consent step. Never share anyone's contact info — contact details are exchanged automatically only after a mutual match.
-- Recommend events (list_events) and local alumni resources like clubs and group chats (list_city_resources).
+- Recommend events (list_events) and local alumni resources like clubs and group chats (list_city_resources). Always call list_events for event questions — never rely on events mentioned earlier in this conversation, since dates and availability change.
 - Read and update the user's profile (get_my_profile, update_profile).
 
 Rules:

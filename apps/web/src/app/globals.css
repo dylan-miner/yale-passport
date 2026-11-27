@@ -3,14 +3,18 @@
 @theme {
   --color-yale: #00356b;
   --color-yale-deep: #00264f;
+  --color-yale-night: #001a38;
   --color-paper: #faf7f1;
+  --color-letter: #fdfaf2;
   --color-card: #ffffff;
   --color-ink: #152238;
   --color-ink-soft: #5b6b84;
   --color-line: #e6dfd2;
+  --color-line-soft: #efe9dc;
   --color-affirm: #0e7a5f;
   --color-affirm-soft: #e4f2ed;
   --color-gold: #b8912f;
+  --color-gold-soft: #f4ead0;
 
   --font-display: var(--font-newsreader), Georgia, "Times New Roman", serif;
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;

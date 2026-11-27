@@ -52,16 +52,22 @@ export default function DiscoverPage() {
     <Suspense
       fallback={
         <div className="flex flex-col gap-6">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-ink-soft">
-              Discover
-            </p>
-            <h1 className="mt-1 font-display text-3xl font-semibold">
-              Your city
-            </h1>
+          <div className="h-40 animate-pulse rounded-3xl bg-yale-night/80 md:h-48" />
+          <div className="flex gap-2">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-8 w-20 animate-pulse rounded-full bg-line-soft"
+              />
+            ))}
           </div>
-          <div className="animate-pulse rounded-3xl border border-line bg-white p-8 text-sm text-ink-soft">
-            Loading…
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="h-28 animate-pulse rounded-2xl border border-line-soft bg-white"
+              />
+            ))}
           </div>
         </div>
       }

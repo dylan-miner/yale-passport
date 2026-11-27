@@ -31,6 +31,24 @@ export async function getOrCreateConciergeConversation(
     .select("*")
     .single();
   if (insertError) throw insertError;
+
+  // First-run welcome — deterministic template (no LLM). The concierge
+  // speaks first; that's the product.
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("full_name,current_city")
+    .eq("id", profileId)
+    .single();
+  const first = prof?.full_name?.split(" ")[0] ?? "there";
+  const city = prof?.current_city ?? "your city";
+  await supabase.from("messages").insert({
+    conversation_id: data.id,
+    sender_type: "concierge",
+    channel: "app",
+    direction: "outbound",
+    body: `Hey ${first} — I'm your Passport concierge. I can point you to who's worth meeting in ${city}, flag events, and make introductions when you're ready. What are you looking for?`,
+  });
+
   return data as Conversation;
 }
 

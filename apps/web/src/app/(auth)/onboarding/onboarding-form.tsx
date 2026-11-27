@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Image from "next/image";
 import { completeOnboarding, type ProfileFormState } from "@/app/actions/profile";
 import { CONSENT_COPY } from "@/lib/consents";
 import { CONSENT_KEYS, type ConsentKey } from "@/lib/types";
@@ -97,21 +98,45 @@ export function OnboardingForm({ email }: { email: string }) {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-8 flex items-center justify-between">
         <Wordmark />
         <span className="text-xs font-semibold uppercase tracking-wider text-ink-soft">
           Step {step + 1} of {STEPS.length}
         </span>
       </div>
 
-      <div className="mb-6 flex gap-1.5">
+      <div className="mb-8 flex gap-2">
         {STEPS.map((s, i) => (
-          <div
-            key={s}
-            className={`h-1 flex-1 rounded-full ${i <= step ? "bg-yale" : "bg-line"}`}
-          />
+          <div key={s} className="flex flex-1 flex-col gap-1.5">
+            <div
+              className={`h-1 rounded-full ${i <= step ? "bg-yale" : "bg-line-soft"}`}
+            />
+            <span
+              className={`text-[10px] font-semibold uppercase tracking-wider ${
+                i <= step ? "text-yale" : "text-ink-soft/60"
+              }`}
+            >
+              {s}
+            </span>
+          </div>
         ))}
       </div>
+
+      {step === 0 && (
+        <div className="relative mb-7 h-36 overflow-hidden rounded-2xl">
+          <Image
+            src="/photos/yale-quad.jpg"
+            alt="Yale's Old Campus"
+            fill
+            className="object-cover"
+            sizes="(max-width: 512px) 100vw, 512px"
+          />
+          <div className="absolute inset-0 bg-yale-night/45" />
+          <p className="absolute bottom-3 left-4 font-display text-lg italic text-white">
+            From Old Campus to everywhere.
+          </p>
+        </div>
+      )}
 
       <h1 className="font-display text-3xl font-semibold text-ink">
         {step === 0 && "Welcome to Passport"}

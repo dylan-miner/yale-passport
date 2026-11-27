@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type {
@@ -9,6 +10,8 @@ import type {
   Event,
   MatchStatus,
 } from "@/lib/types";
+import { cityPhoto } from "@/lib/city-photos";
+import { Avatar, Empty, Notice } from "@/components/ui";
 
 export type DiscoverData = {
   me: { id: string; city: string };
@@ -18,15 +21,6 @@ export type DiscoverData = {
   resources: CityResource[];
   matchStatus: Record<string, MatchStatus>;
 };
-
-function initials(name: string) {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
 
 function fmtDate(iso: string) {
   const d = new Date(iso);
@@ -174,18 +168,30 @@ export function DiscoverView({ data }: { data: DiscoverData }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-ink-soft">
-          Discover
-        </p>
-        <h1 className="mt-1 font-display text-3xl font-semibold">
-          {isHome ? `${city} is yours` : `Visiting ${city}?`}
-        </h1>
-        <p className="mt-1 text-sm text-ink-soft">
-          {isHome
-            ? "Alumni, events, and communities where you live."
-            : "Who and what's there when you travel — your home base stays put."}
-        </p>
+      {/* City photo hero — the network has a sense of place */}
+      <div className="relative h-40 overflow-hidden rounded-3xl md:h-48">
+        <Image
+          src={cityPhoto(city)}
+          alt={`${city} skyline`}
+          fill
+          priority
+          className="object-cover"
+          sizes="(max-width: 768px) 100vw, 768px"
+        />
+        <div className="absolute inset-0 bg-yale-night/55" />
+        <div className="absolute inset-x-0 bottom-0 p-5 md:p-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70">
+            Discover
+          </p>
+          <h1 className="mt-0.5 font-display text-3xl font-semibold text-white md:text-4xl">
+            {isHome ? `${city} is yours` : `Visiting ${city}?`}
+          </h1>
+          <p className="mt-1 text-sm text-white/80">
+            {alumniInCity.length} alumni · {eventsInCity.length} upcoming
+            {resourcesInCity.length > 0 &&
+              ` · ${resourcesInCity.length} communities`}
+          </p>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -301,16 +307,8 @@ export function DiscoverView({ data }: { data: DiscoverData }) {
         </div>
       )}
 
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
-          {error}
-        </div>
-      )}
-      {notice && (
-        <div className="rounded-xl border border-affirm/30 bg-affirm-soft px-4 py-2 text-sm text-affirm">
-          {notice}
-        </div>
-      )}
+      {error && <Notice tone="error">{error}</Notice>}
+      {notice && <Notice tone="success">{notice}</Notice>}
 
       {/* Alumni */}
       <section className="flex flex-col gap-3">
@@ -323,9 +321,18 @@ export function DiscoverView({ data }: { data: DiscoverData }) {
           </Link>
         </div>
         {alumniInCity.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-line bg-white/60 px-5 py-6 text-sm text-ink-soft">
-            No alumni opted into the directory here yet.
-          </p>
+          <Empty
+            title={`No alumni opted in here yet.`}
+            body="The concierge can still point you to events and communities — or try another city."
+            action={
+              <Link
+                href="/concierge"
+                className="inline-block rounded-full bg-yale px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-yale-deep"
+              >
+                Ask the concierge
+              </Link>
+            }
+          />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {alumniInCity.map((a) => (
@@ -335,9 +342,7 @@ export function DiscoverView({ data }: { data: DiscoverData }) {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-yale/10 font-display text-sm font-semibold text-yale">
-                      {initials(a.full_name)}
-                    </div>
+                    <Avatar name={a.full_name} />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-ink">
                         {a.full_name}{" "}
@@ -378,9 +383,7 @@ export function DiscoverView({ data }: { data: DiscoverData }) {
           Events in {city}
         </h2>
         {eventsInCity.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-line bg-white/60 px-5 py-6 text-sm text-ink-soft">
-            Nothing scheduled right now.
-          </p>
+          <Empty title="Nothing scheduled right now." />
         ) : (
           <div className="flex flex-col gap-3">
             {eventsInCity.map((e) => {
@@ -434,9 +437,7 @@ export function DiscoverView({ data }: { data: DiscoverData }) {
           Communities in {city}
         </h2>
         {resourcesInCity.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-line bg-white/60 px-5 py-6 text-sm text-ink-soft">
-            No clubs or group chats listed yet.
-          </p>
+          <Empty title="No clubs or group chats listed yet." />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {resourcesInCity.map((r) => (
