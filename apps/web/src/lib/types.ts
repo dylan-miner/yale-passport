@@ -151,6 +151,9 @@ export interface LocationSignal {
   source: LocationSource;
   kind: LocationKind;
   confirmed: boolean;
+  starts_on: string | null;
+  ends_on: string | null;
+  closed_at: string | null;
   created_at: string;
 }
 

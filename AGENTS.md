@@ -14,6 +14,8 @@ SMS-first Yale alumni networking MVP. Next.js 16 app lives in `apps/web`.
 - `npm run verify` — RLS + seed checks against the live Supabase project
 - `npm run concierge:smoke` — end-to-end concierge test (route → engine →
   OpenAI → DB); needs the dev server running and OpenAI credits
+- `npm run match:smoke` / `npm run location:smoke` — match lifecycle and
+  location/trip-lifecycle HTTP smoke tests; need the dev server running
 - `npm run seed` — idempotent synthetic data reset
 - `npm run typecheck` / `npm run lint` / `npm run build`
 

@@ -1,6 +1,7 @@
 import "server-only";
 import { generateText, stepCountIs, type ModelMessage } from "ai";
 import { openai } from "@ai-sdk/openai";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Channel, Message, Profile } from "@/lib/types";
 import {
   appendMessage,
@@ -12,7 +13,29 @@ import { buildConciergeTools } from "./tools";
 
 const MODEL = process.env.CONCIERGE_MODEL ?? "gpt-4o-mini";
 
-function buildSystemPrompt(profile: Profile): string {
+// Alumni recommended in a recent proactive location notice — injected so
+// follow-ups like "yes, introduce me" act on a real alumni_id, not memory.
+async function getPendingRecommendations(
+  profileId: string,
+): Promise<{ alumni_id: string; name: string; canIntro: boolean }[]> {
+  const supabase = createAdminClient();
+  const since = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+  const { data } = await supabase
+    .from("engagement_events")
+    .select("meta,created_at")
+    .eq("profile_id", profileId)
+    .eq("type", "location_notice_sent")
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  const recs = data?.[0]?.meta?.recommendations;
+  return Array.isArray(recs) ? recs : [];
+}
+
+function buildSystemPrompt(
+  profile: Profile,
+  pendingRecs: { alumni_id: string; name: string; canIntro: boolean }[] = [],
+): string {
   const name = profile.full_name.split(" ")[0] ?? "there";
   const identity = [
     profile.role_title && profile.company
@@ -39,7 +62,20 @@ Rules:
 - If the user asks for someone's contact info, explain that Passport exchanges contact details automatically once both people opt in — offer to request the intro instead.
 - If the user says something ambiguous, ask a short clarifying question rather than guessing.
 - If a tool reports an error or no results, say so briefly and offer an alternative.
-- Today you reach ${name} in-app; the same conversation may later continue over SMS.`;
+- Today you reach ${name} in-app; the same conversation may later continue over SMS.${pendingContext(profile, pendingRecs)}`;
+}
+
+function pendingContext(
+  profile: Profile,
+  pendingRecs: { alumni_id: string; name: string; canIntro: boolean }[],
+): string {
+  const list = pendingRecs
+    .filter((r) => r.canIntro)
+    .map((r) => `${r.name} (alumni_id: ${r.alumni_id})`)
+    .join("; ");
+  if (!list) return "";
+  const name = profile.full_name.split(" ")[0];
+  return `\n\nCONTEXT — you recently sent ${name} a proactive message recommending these alumni: ${list}. If they reply affirmatively ("yes", "introduce me", "connect us", or naming one of them), call propose_match directly with that alumni_id — do not search first and do not re-ask for confirmation; their reply is the confirmation.`;
 }
 
 function toModelMessages(history: Message[]): ModelMessage[] {
@@ -78,13 +114,16 @@ export async function handleConciergeMessage(args: {
   });
   await logEngagement("concierge_message_in", profile.id, { channel });
 
-  const history = await getRecentMessages(conversation.id, 24);
+  const [history, pendingRecs] = await Promise.all([
+    getRecentMessages(conversation.id, 24),
+    getPendingRecommendations(profile.id),
+  ]);
 
   let replyText: string;
   try {
     const result = await generateText({
       model: openai(MODEL),
-      system: buildSystemPrompt(profile),
+      system: buildSystemPrompt(profile, pendingRecs),
       messages: toModelMessages(history),
       tools: buildConciergeTools(profile, channel),
       stopWhen: stepCountIs(6),

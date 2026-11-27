@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type {
   CityResource,
   DirectoryProfile,
@@ -11,6 +12,7 @@ import type {
 
 export type DiscoverData = {
   me: { id: string; city: string };
+  activeTrip: { city: string; since: string; endsOn: string | null } | null;
   alumni: DirectoryProfile[];
   events: Event[];
   resources: CityResource[];
@@ -43,11 +45,21 @@ const RESOURCE_LABEL: Record<CityResource["type"], string> = {
 };
 
 export function DiscoverView({ data }: { data: DiscoverData }) {
-  const [city, setCity] = useState(data.me.city);
+  const router = useRouter();
+  // A confirmed trip steers Discover to the travel city; browsing other
+  // cities via the pills never changes where "home" is.
+  const [city, setCity] = useState(data.activeTrip?.city ?? data.me.city);
   const [matchStatus, setMatchStatus] = useState(data.matchStatus);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportCity, setReportCity] = useState("");
+  const [reportKind, setReportKind] = useState<"travel" | "relocation">(
+    "travel",
+  );
+  const [reportEndsOn, setReportEndsOn] = useState("");
+  const [reportBusy, setReportBusy] = useState(false);
 
   const cities = useMemo(() => {
     const all = new Set<string>([
@@ -64,6 +76,44 @@ export function DiscoverView({ data }: { data: DiscoverData }) {
   const eventsInCity = data.events.filter((e) => e.city === city);
   const resourcesInCity = data.resources.filter((r) => r.city === city);
   const isHome = city === data.me.city;
+
+  async function reportLocation(
+    cityToReport: string,
+    kind: "travel" | "relocation",
+    endsOn?: string,
+  ) {
+    setReportBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/location/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          city: cityToReport,
+          kind,
+          source: "manual",
+          ends_on: endsOn || null,
+        }),
+      });
+      if (!res.ok) {
+        setError("Couldn't save that — try again.");
+      } else {
+        setReportOpen(false);
+        setNotice(
+          kind === "relocation"
+            ? `${cityToReport} is your new home base — check the concierge for recommendations.`
+            : cityToReport === data.me.city
+              ? `Welcome home — Discover is back on ${cityToReport}.`
+              : `Trip noted — I'll send ${cityToReport} recommendations to your concierge thread.`,
+        );
+        router.refresh();
+      }
+    } catch {
+      setError("Couldn't reach the server — try again.");
+    } finally {
+      setReportBusy(false);
+    }
+  }
 
   async function requestIntro(alumniId: string, name: string) {
     setBusy(alumniId);
@@ -154,6 +204,102 @@ export function DiscoverView({ data }: { data: DiscoverData }) {
           </button>
         ))}
       </div>
+
+      {/* Travel context */}
+      {data.activeTrip && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-yale/25 bg-white px-5 py-3.5">
+          <p className="text-sm text-ink">
+            You&rsquo;re in{" "}
+            <span className="font-medium">{data.activeTrip.city}</span>
+            {data.activeTrip.endsOn
+              ? ` through ${new Date(`${data.activeTrip.endsOn}T12:00:00`).toLocaleDateString([], { month: "short", day: "numeric" })}`
+              : ""}{" "}
+            — {data.me.city} stays your home base.
+          </p>
+          <button
+            onClick={() =>
+              void reportLocation(data.me.city, "travel")
+            }
+            disabled={reportBusy}
+            className="rounded-full border border-line px-3.5 py-1 text-xs font-semibold text-yale transition hover:border-yale/50 disabled:opacity-40"
+          >
+            I&rsquo;m back home
+          </button>
+        </div>
+      )}
+
+      {/* Voluntary location report — available regardless of detection consent */}
+      {!reportOpen ? (
+        <button
+          onClick={() => setReportOpen(true)}
+          className="self-start text-xs text-ink-soft underline-offset-2 transition hover:text-yale hover:underline"
+        >
+          {data.activeTrip ? "Somewhere else?" : "Traveling or moved? Tell us"}
+        </button>
+      ) : (
+        <div className="rounded-2xl border border-yale/25 bg-white p-5">
+          <p className="text-sm font-medium text-ink">
+            Where are you — and is it a visit or a move?
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <input
+              value={reportCity}
+              onChange={(e) => setReportCity(e.target.value)}
+              placeholder="City (e.g. Chicago)"
+              list="discover-cities"
+              className="w-44 rounded-lg border border-line bg-paper px-3 py-1.5 text-sm text-ink"
+            />
+            <datalist id="discover-cities">
+              {cities.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+            {(["travel", "relocation"] as const).map((k) => (
+              <button
+                key={k}
+                onClick={() => setReportKind(k)}
+                className={
+                  reportKind === k
+                    ? "rounded-full bg-yale px-3.5 py-1.5 text-xs font-semibold text-white"
+                    : "rounded-full border border-line px-3.5 py-1.5 text-xs text-ink transition hover:border-yale/50"
+                }
+              >
+                {k === "travel" ? "Just visiting" : "I moved"}
+              </button>
+            ))}
+            {reportKind === "travel" && (
+              <label className="flex items-center gap-1.5 text-xs text-ink-soft">
+                until
+                <input
+                  type="date"
+                  value={reportEndsOn}
+                  onChange={(e) => setReportEndsOn(e.target.value)}
+                  className="rounded-lg border border-line bg-paper px-2 py-1 text-xs text-ink"
+                />
+              </label>
+            )}
+            <button
+              disabled={reportBusy || reportCity.trim().length < 2}
+              onClick={() =>
+                void reportLocation(
+                  reportCity.trim(),
+                  reportKind,
+                  reportEndsOn,
+                )
+              }
+              className="rounded-full bg-yale px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-yale-deep disabled:opacity-40"
+            >
+              {reportBusy ? "…" : "Save"}
+            </button>
+            <button
+              onClick={() => setReportOpen(false)}
+              className="text-xs text-ink-soft hover:text-ink"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">

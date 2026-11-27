@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { requireUser, getMyProfile } from "@/lib/auth";
 import { getMatchesForProfile } from "@/lib/matching";
+import { getTravelContext } from "@/lib/location/lifecycle";
 import { DiscoverView, type DiscoverData } from "./discover-view";
 
 async function DiscoverData() {
@@ -32,8 +33,11 @@ async function DiscoverData() {
     ]),
   );
 
+  const ctx = await getTravelContext(profile);
+
   const data: DiscoverData = {
     me: { id: profile.id, city: profile.current_city },
+    activeTrip: ctx.activeTrip,
     alumni: alumni.data ?? [],
     events: events.data ?? [],
     resources: resources.data ?? [],

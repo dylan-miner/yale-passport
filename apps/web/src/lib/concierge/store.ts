@@ -89,6 +89,24 @@ export async function getRecentMessages(
   return (data as Message[]).reverse();
 }
 
+// Post a concierge-authored message into the user's concierge thread —
+// used by proactive flows (location notices, match notifications) so the
+// same thread the user replies to carries all outreach.
+export async function notifyConcierge(
+  profileId: string,
+  body: string,
+  channel: Channel = "app",
+): Promise<Message> {
+  const conversation = await getOrCreateConciergeConversation(profileId);
+  return appendMessage({
+    conversationId: conversation.id,
+    senderType: "concierge",
+    channel,
+    direction: "outbound",
+    body,
+  });
+}
+
 export async function logEngagement(
   type: string,
   profileId: string | null,

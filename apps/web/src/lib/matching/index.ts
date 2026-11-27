@@ -5,8 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Channel, Match, Profile } from "@/lib/types";
 import {
   appendMessage,
-  getOrCreateConciergeConversation,
   logEngagement,
+  notifyConcierge,
 } from "@/lib/concierge/store";
 
 const MODEL = process.env.CONCIERGE_MODEL ?? "gpt-4o-mini";
@@ -54,22 +54,6 @@ function counterpartCard(p: Profile): CounterpartCard {
     networking_goals: p.networking_goals,
     is_synthetic: p.is_synthetic,
   };
-}
-
-// Post a concierge-authored message into a profile's own concierge thread.
-export async function notifyConcierge(
-  profileId: string,
-  body: string,
-  channel: Channel = "app",
-) {
-  const conversation = await getOrCreateConciergeConversation(profileId);
-  await appendMessage({
-    conversationId: conversation.id,
-    senderType: "concierge",
-    channel,
-    direction: "outbound",
-    body,
-  });
 }
 
 // ---------- request an introduction ----------
